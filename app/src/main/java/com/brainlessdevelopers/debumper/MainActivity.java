@@ -37,18 +37,28 @@ import java.util.List;
  */
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
-
-
-
     //TODO ne upisuje se svaka promjena u file nego u neku listu i onda dretva neka svakih deset sekundi upiše informacije u datoteku :)
 
     public static final int DIV_MILISECONDS_BY = 10;
 
     Toast toast;
 
+    /**
+     * manages all the sensors
+     */
     private SensorManager sm;
+
+    /**
+     * accelerometer sensor
+     */
     private Sensor accelerometer;
+    /**
+     * linear accelerometer sensor
+     */
     private Sensor linearAccelerometer;
+    /**
+     * orientation sensor
+     */
     private Sensor magneticField;
 
     File accelerometerOutputFolder;
@@ -58,6 +68,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     File accelerometerLog;
     File linearAccelerometerLog;
     File magneticFieldLog;
+
+    /**
+     * temporary list for storing accelerometer data.
+     * Emptied every time it's data is appended to a file
+     */
+    List<String> accelerometerList = new ArrayList<>();
 
     // used to see if it should write to a file or not (space fills up too quickly otherwise)
     long timePassed;
@@ -80,6 +96,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         getSupportActionBar().hide();
         setContentView(R.layout.activity_main);
+
+        accelerometerList.add("kkkk");
 
         // check if this app has all the required permissions
         allPermissionsGranted();
@@ -109,7 +127,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         sm.registerListener(this, magneticField, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
-    private void initializeFolders(){
+    private void initializeFolders() {
         // Last part of the filename: record tracking.
         Calendar c = Calendar.getInstance();
         SimpleDateFormat df = new SimpleDateFormat("dd_MM_yyyy_HH_mm_ss");
@@ -144,7 +162,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-    private void updateAcceleration(SensorEvent event){
+    private void updateAcceleration(SensorEvent event) {
         log = (TextView) findViewById(R.id.log);
         String display = String.format("X: %.2f\nY: %.2f\nZ: %.2f\n", event.values[0], event.values[1], event.values[2]);
         String result = String.format("%f|%f|%f\n", event.values[0], event.values[1], event.values[2]);
@@ -153,20 +171,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         appendingToTheFile(accelerometerLog, result, false);
     }
 
-    private void updateLinearAcceleration(SensorEvent event){
+    private void updateLinearAcceleration(SensorEvent event) {
         String result = String.format("%f|%f|%f\n", event.values[0], event.values[1], event.values[2]);
         appendingToTheFile(linearAccelerometerLog, result, false);
     }
 
-    private void updateMagneticField(SensorEvent event){
+    private void updateMagneticField(SensorEvent event) {
         String result = Double.valueOf(event.values[0]).toString() + "\n";
         appendingToTheFile(magneticFieldLog, result, false);
     }
 
-    private void appendingToTheFile(File file, String s, boolean slower){
-        long currentTime = (new Date().getTime()) ;
-        if(slower){
-            currentTime/=DIV_MILISECONDS_BY;
+    private void appendingToTheFile(File file, String s, boolean slower) {
+        long currentTime = (new Date().getTime());
+        if (slower) {
+            currentTime /= DIV_MILISECONDS_BY;
         }
 
         try (FileWriter fileWrite = new FileWriter(file, true)) {
@@ -181,23 +199,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     /**
-     * The action that activity does when sensor value is changed
+     * The method called when the value of each registered sensor is changed
      *
-     * @param event
+     * @param event event that happened with the sensor
      */
     public void onSensorChanged(SensorEvent event) {
         int eventType = event.sensor.getType();
 
-        if(eventType == Sensor.TYPE_ACCELEROMETER) {
+        if (eventType == Sensor.TYPE_ACCELEROMETER) {
             updateAcceleration(event);
         }
-        if(eventType == Sensor.TYPE_LINEAR_ACCELERATION){
+        if (eventType == Sensor.TYPE_LINEAR_ACCELERATION) {
             updateLinearAcceleration(event);
         }
-        if(eventType == Sensor.TYPE_ORIENTATION){
+        if (eventType == Sensor.TYPE_ORIENTATION) {
             updateMagneticField(event);
         }
-
     }
 
     @Override
