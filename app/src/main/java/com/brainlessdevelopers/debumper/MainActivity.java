@@ -7,9 +7,12 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Build;
 import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -21,6 +24,7 @@ import android.widget.Toast;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.security.Permission;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -39,9 +43,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     //TODO ne upisuje se svaka promjena u file nego u neku listu i onda dretva neka svakih deset sekundi upiše informacije u datoteku :)
 
+    public static final int ALL_GRANTED = 1;
     public static final int DIV_MILISECONDS_BY = 10;
 
     Toast toast;
+
+    //LOCATION
+    private LocationManager mLocationManager;
+
+    private LocationListener mLocationListener;
 
     /**
      * manages all the sensors
@@ -97,8 +107,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         getSupportActionBar().hide();
         setContentView(R.layout.activity_main);
 
-        accelerometerList.add("kkkk");
-
         // check if this app has all the required permissions
         allPermissionsGranted();
 
@@ -125,6 +133,32 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         sm.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         sm.registerListener(this, linearAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         sm.registerListener(this, magneticField, SensorManager.SENSOR_DELAY_NORMAL);
+
+        mLocationListener = new LocationListener() {
+            @Override
+            public void onStatusChanged(String s, int i, Bundle bundle) {}
+
+            @Override
+            public void onProviderEnabled(String s) {}
+
+            @Override
+            public void onProviderDisabled(String s) {}
+
+            @Override
+            public void onLocationChanged(final Location location) {
+                Toast.makeText(getApplicationContext(), "Tracking location changes motherfucker", Toast.LENGTH_LONG).show();
+            }
+        };
+
+        mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+
+        // TODO ovo napraviti kada enejbla permission za lokaciju
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000,
+                    1.5f, mLocationListener);
+        }
+
+
     }
 
     private void initializeFolders() {
@@ -140,24 +174,26 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         magneticFieldLog = new File(magneticFieldOutputFolder, "magneticField_" + df.format(c.getTime()) + ".txt");
     }
 
+    public static boolean hasPermissions(Context context, String... permissions) {
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && context != null && permissions != null) {
+            for (String permission : permissions) {
+                if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     /**
      * Asks user to provide the app with the required permissions
      */
     private void allPermissionsGranted() {
-        int storagePermissionCheck = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        if (storagePermissionCheck == PackageManager.PERMISSION_GRANTED) {
-            Log.e("Write permission", "granted ");
-        } else {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                // TODO explain why user needs to enable this permission!
-                Toast.makeText(getApplicationContext(), "Please enable this app to write in your storage since that's its main purpose", Toast.LENGTH_LONG).show();
-                ActivityCompat.requestPermissions(this, new String[]{
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                }, 1);
-            } else {
-                ActivityCompat.requestPermissions(this, new String[]{
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                }, 1);
+        String[] PERMISSIONS = { Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.ACCESS_FINE_LOCATION};
+
+        if(!hasPermissions(this, PERMISSIONS)){
+            if(!hasPermissions(this, PERMISSIONS)){
+                ActivityCompat.requestPermissions(this, PERMISSIONS, ALL_GRANTED);
             }
         }
     }
