@@ -21,6 +21,7 @@ import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -30,6 +31,9 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+
+import static android.R.attr.data;
+import static android.content.Context.LOCATION_SERVICE;
 
 /**
  * Main activity in most basic version
@@ -45,8 +49,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     public static final int ALL_GRANTED = 1;
     public static final int DIV_MILISECONDS_BY = 10;
-
-    Toast toast;
 
     //LOCATION
     private LocationManager mLocationManager;
@@ -75,9 +77,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     File linearAccelerometerOutputFolder;
     File magneticFieldOutputFolder;
 
+    File locationOutputFolder;
+
     File accelerometerLog;
     File linearAccelerometerLog;
     File magneticFieldLog;
+
+    File locationLog;
 
     /**
      * temporary list for storing accelerometer data.
@@ -88,8 +94,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // used to see if it should write to a file or not (space fills up too quickly otherwise)
     long timePassed;
 
+    private TextView locationTextView;
+
     //TextView to display all the information from the sensor
-    private TextView log;
+    // private TextView log;
 
     /**
      * Activity launches here
@@ -99,12 +107,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+/*
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         getSupportActionBar().hide();
+*/
         setContentView(R.layout.activity_main);
 
         // check if this app has all the required permissions
@@ -115,8 +124,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // Check if external storage is available for write
         if (!isExternalStorageWritable()) {
-            toast = Toast.makeText(getApplicationContext(), "External storage unavailable, app won't save any data", Toast.LENGTH_LONG);
-            toast.show();
+            Toast.makeText(getApplicationContext(), "External storage unavailable, app won't save any data", Toast.LENGTH_LONG).show();
         } else {
             Log.e("Storage", "available");
         }
@@ -136,26 +144,46 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         mLocationListener = new LocationListener() {
             @Override
-            public void onStatusChanged(String s, int i, Bundle bundle) {}
+            public void onStatusChanged(String s, int i, Bundle bundle) {// not using
+            }
 
             @Override
-            public void onProviderEnabled(String s) {}
+            public void onProviderEnabled(String s) {// not using
+            }
 
             @Override
-            public void onProviderDisabled(String s) {}
+            public void onProviderDisabled(String s) {// not using
+            }
 
             @Override
             public void onLocationChanged(final Location location) {
-                Toast.makeText(getApplicationContext(), "Tracking location changes motherfucker", Toast.LENGTH_LONG).show();
+                locationTextView = (TextView) findViewById(R.id.location);
+                locationTextView.setText("Latitude:\t" + location.getLatitude() + "\nLongitute:\t" + location.getLongitude());
+
+                // TODO ovo ne uspjeva
+                try {
+                    FileWriter fw = new FileWriter(locationOutputFolder, true);
+                    try{
+                        BufferedWriter br = new BufferedWriter(fw);
+                        br.append( + location.getLatitude() + "|" + location.getLongitude()+"\n");
+                        br.close();
+                        fw.close();
+                    }catch (IOException e1){
+                        Log.e("Unutarnji", "nije uspio");
+                    }
+                } catch (IOException e) {
+                    Log.e("Vanjski", "nije uspio");
+                }
+
             }
         };
 
         mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
-        // TODO ovo napraviti kada enejbla permission za lokaciju
-        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
-            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000,
-                    1.5f, mLocationListener);
+        // TODO do this right away after user confirms the permission
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0,
+                    0, mLocationListener);
         }
 
 
@@ -172,6 +200,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         linearAccelerometerLog = new File(linearAccelerometerOutputFolder, "linearAccelerometer_" + df.format(c.getTime()) + ".txt");
         magneticFieldOutputFolder = getOutputFolder("sensors/magneticField");
         magneticFieldLog = new File(magneticFieldOutputFolder, "magneticField_" + df.format(c.getTime()) + ".txt");
+
+        locationOutputFolder = getOutputFolder("sensors/location");
+        locationLog = new File(locationOutputFolder, "location_" + df.format(c.getTime()) + ".txt");
     }
 
     public static boolean hasPermissions(Context context, String... permissions) {
@@ -189,21 +220,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
      * Asks user to provide the app with the required permissions
      */
     private void allPermissionsGranted() {
-        String[] PERMISSIONS = { Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.ACCESS_FINE_LOCATION};
+        String[] PERMISSIONS = {Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.ACCESS_FINE_LOCATION};
 
-        if(!hasPermissions(this, PERMISSIONS)){
-            if(!hasPermissions(this, PERMISSIONS)){
+        if (!hasPermissions(this, PERMISSIONS)) {
+            if (!hasPermissions(this, PERMISSIONS)) {
                 ActivityCompat.requestPermissions(this, PERMISSIONS, ALL_GRANTED);
             }
         }
     }
 
     private void updateAcceleration(SensorEvent event) {
-        log = (TextView) findViewById(R.id.log);
-        String display = String.format("X: %.2f\nY: %.2f\nZ: %.2f\n", event.values[0], event.values[1], event.values[2]);
         String result = String.format("%f|%f|%f\n", event.values[0], event.values[1], event.values[2]);
-        log.setText(display);
-
         appendingToTheFile(accelerometerLog, result, false);
     }
 
@@ -215,6 +242,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private void updateMagneticField(SensorEvent event) {
         String result = Double.valueOf(event.values[0]).toString() + "\n";
         appendingToTheFile(magneticFieldLog, result, false);
+    }
+
+    private void updateLocation(Location location) {
+        String result = location.getLatitude() + "|" + location.getLongitude();
+        appendingToTheFile(locationLog, result, false);
     }
 
     private void appendingToTheFile(File file, String s, boolean slower) {
@@ -278,11 +310,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onPause() {
         super.onPause();
         sm.unregisterListener(this);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+            mLocationManager.removeUpdates(mLocationListener);
     }
 
     protected void onResume() {
         super.onResume();
         sm.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         sm.registerListener(this, linearAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        sm.registerListener(this, magneticField, SensorManager.SENSOR_DELAY_NORMAL);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000,
+                    1.5f, mLocationListener);
     }
 }
